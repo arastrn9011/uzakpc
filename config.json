@@ -1,0 +1,8 @@
+{
+  "secret": "091d08d8b3e53ee0d64b6977a87d8b2755528adef6f22dbff13a945e069cf6fe",
+  "port": 8765,
+  "files_root": "C:\\Users\\25jon",
+  "keep_awake": true,
+  "salt": "ea59c19e37765f7b415931431d05bffc",
+  "pw_hash": "6afd2c1c9981d3bd1da062bc82655b8da368af9a540f2946b80fbbbcfe3bad74"
+}

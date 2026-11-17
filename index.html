@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Uzaktan PC">
+<meta name="theme-color" content="#0b0d10">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon.png">
+<title>Uzaktan PC</title>
+<style>
+:root{--bg:#0b0d10;--panel:#161a20;--panel2:#1f252d;--line:#2a323c;--txt:#e8edf3;--mut:#8b97a6;--acc:#4da3ff;--bad:#ff6b6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+html,body{margin:0;height:100%;width:100%;overflow:hidden;position:fixed;background:#000;color:var(--txt);
+  font:15px/1.35 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+button{font:inherit;color:var(--txt);background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  padding:9px 13px;white-space:nowrap;flex:none}
+button:active{background:var(--line)}
+button.on{background:var(--acc);border-color:var(--acc);color:#04121f}
+
+#app{position:fixed;left:0;top:0;width:100%;height:100%;display:flex;flex-direction:column;background:#000}
+#stage{flex:1;min-height:0;position:relative;overflow:hidden;touch-action:none;margin-top:env(safe-area-inset-top)}
+#view{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+#screen{display:block;background:#000}
+#cur{position:absolute;left:0;top:0;width:20px;height:20px;transform-origin:0 0;pointer-events:none;display:none}
+#pill{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:5;display:none;max-width:90%;
+  background:rgba(22,26,32,.94);border:1px solid var(--line);padding:7px 14px;border-radius:999px;font-size:13px;text-align:center}
+#fab{position:absolute;right:10px;bottom:10px;width:44px;height:44px;border-radius:50%;padding:0;display:none;z-index:4}
+#app.nobar #fab{display:block}
+
+#keys{display:none;gap:6px;overflow-x:auto;padding:6px 8px;background:var(--panel);border-top:1px solid var(--line)}
+#app.kb #keys{display:flex}
+#bar{display:flex;gap:6px;overflow-x:auto;padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+  background:var(--panel);border-top:1px solid var(--line)}
+#app.kb #bar{padding-bottom:8px}
+#app.nobar #bar{display:none}
+#kbin{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;border:0;padding:0;font-size:16px;pointer-events:none}
+
+#stage{margin-left:env(safe-area-inset-left);margin-right:env(safe-area-inset-right)}
+@media (orientation:landscape){
+  #bar{padding:5px calc(8px + env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left))}
+  #bar button,#keys button{padding:6px 11px;font-size:14px}
+  #keys{padding:4px 8px}
+}
+.sheet{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.62);display:none;align-items:flex-end}
+.sheet.light{background:transparent;pointer-events:none}
+.sheet.light .panel{pointer-events:auto;max-height:56%;border-top:1px solid var(--line)}
+.kbody{overflow-y:auto;-webkit-overflow-scrolling:touch}
+.kt{padding:10px 14px 4px;color:var(--mut);font-size:13px}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:6px;padding:2px 12px 8px}
+.kgrid button{padding:9px 4px;overflow:hidden;text-overflow:ellipsis}
+.sheet.open{display:flex}
+.panel{width:100%;max-height:86%;display:flex;flex-direction:column;background:var(--panel);
+  border-radius:16px 16px 0 0;padding-bottom:env(safe-area-inset-bottom)}
+.phead{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.phead b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+#flist{overflow-y:auto;flex:1;min-height:120px}
+.row{display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.row .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .s{color:var(--mut);font-size:13px}
+.row:active{background:var(--panel2)}
+.pfoot{padding:10px 14px;display:flex;gap:10px;align-items:center;border-top:1px solid var(--line)}
+.pfoot span{flex:1;color:var(--mut);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+#login{position:absolute;inset:0;z-index:30;background:var(--bg);display:none;align-items:center;justify-content:center;padding:24px}
+#login.open{display:flex}
+.card{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px}
+.card h1{margin:0 0 4px;font-size:22px}
+.card input{font-size:17px;padding:13px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt)}
+.card button.go{background:var(--acc);border-color:var(--acc);color:#04121f;font-weight:600;padding:13px}
+#lerr{color:var(--bad);min-height:1.3em;font-size:14px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="view">
+      <canvas id="screen" width="16" height="9"></canvas>
+      <svg id="cur" viewBox="0 0 20 20"><path d="M2 1 L2 15 L6 11.5 L9 18 L11.5 17 L8.5 10.5 L14 10.5 Z" fill="#fff" stroke="#000" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    </div>
+    <div id="pill"></div>
+    <button id="fab" aria-label="Menüyü aç">▴</button>
+  </div>
+  <div id="keys"></div>
+  <div id="bar">
+    <button id="bKb">Klavye</button>
+    <button id="bKeys">Tuşlar</button>
+    <button id="bAudio">Ses kapalı</button>
+    <button id="bFiles">Dosyalar</button>
+    <button id="bMode">Touchpad</button>
+    <button id="bFull">Tam ekran</button>
+    <button id="bQ">Kalite: Orta</button>
+    <button id="bMon" style="display:none">Ekran 1</button>
+    <button id="bFit">Sığdır</button>
+    <button id="bHide">Gizle ▾</button>
+  </div>
+  <input id="kbin" type="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="enter" aria-label="Klavye girişi">
+
+  <div class="sheet" id="files">
+    <div class="panel">
+      <div class="phead"><b id="fpath">/</b><button id="fclose">Kapat</button></div>
+      <div id="flist"></div>
+      <div class="pfoot">
+        <span id="fstat">Bir dosyaya dokun: telefona indir</span>
+        <button id="fup" class="on">Buraya yükle</button>
+      </div>
+    </div>
+  </div>
+  <div class="sheet light" id="keysheet">
+    <div class="panel">
+      <div class="phead"><b>Tuşlar ve kısayollar</b><button id="kclose">Kapat</button></div>
+      <div class="kbody" id="kbody"></div>
+    </div>
+  </div>
+  <div class="sheet" id="fshelp">
+    <div class="panel">
+      <div class="phead"><b>Tam ekran (iPhone)</b><button id="fhclose">Kapat</button></div>
+      <div style="padding:14px;line-height:1.6;overflow-y:auto">
+        iPhone'daki Safari, bir web sayfasının sekme içinde tam ekran olmasına izin vermiyor. Çözüm: sayfayı uygulama gibi aç.<br><br>
+        1. Safari'de <b>Paylaş</b> simgesine dokun.<br>
+        2. <b>Ana Ekrana Ekle</b>'yi seç.<br>
+        3. Ana ekrandaki <b>Uzaktan PC</b> simgesinden aç. Adres çubuğu olmadan tam ekran açılır.<br>
+        4. Yatay kullanmak için telefonu yan çevir. Dönmüyorsa Denetim Merkezi'nden dönüş kilidini kapat.
+      </div>
+    </div>
+  </div>
+  <input id="upin" type="file" multiple hidden>
+
+  <div id="login">
+    <form class="card" id="lform">
+      <h1>Uzaktan PC</h1>
+      <input id="lpw" type="password" placeholder="Şifre" autocomplete="current-password">
+      <div id="lerr"></div>
+      <button class="go" type="submit">Bağlan</button>
+    </form>
+  </div>
+</div>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const app=$('#app'),stage=$('#stage'),view=$('#view'),cv=$('#screen'),ctx=cv.getContext('2d',{alpha:false,desynchronized:true}),
+      cur=$('#cur'),kbin=$('#kbin'),pill=$('#pill');
+const store={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}},
+             set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+let ws=null, info={mw:1920,mh:1080,mons:1,mon:1,audio:false,rate:24000,ch:2};
+let quality=+store.get('q2',0), mode=store.get('mode','pad');
+let z=1,tx=0,ty=0,bw=100,bh=100,sw=100,sh=100;
+const cn={x:.5,y:.5}; let lastTouch=0;
+const PAD_SENS=1;
+const clamp01=v=>Math.max(0,Math.min(1,v));
+const QN=['Oto','Düşük','Orta','Yüksek'];
+
+/* ---------- bildirim ---------- */
+let pillT=null;
+function toast(msg,ms=1700){pill.textContent=msg;pill.style.display='block';clearTimeout(pillT);
+  if(ms)pillT=setTimeout(()=>{pill.style.display='none'},ms)}
+function hideToast(){clearTimeout(pillT);pill.style.display='none'}
+
+/* ---------- yerleşim / yakınlaştırma ---------- */
+function sizeApp(){
+  const vv=window.visualViewport;
+  app.style.height=(vv?vv.height:innerHeight)+'px';
+  app.style.top=(vv?vv.offsetTop:0)+'px';
+  fit();
+}
+function fit(){
+  sw=stage.clientWidth;sh=stage.clientHeight;
+  const fw=cv.width||16,fh=cv.height||9,s=Math.min(sw/fw,sh/fh);
+  bw=fw*s;bh=fh*s;
+  for(const e of [cv,view]){e.style.width=bw+'px';e.style.height=bh+'px'}
+  clampView();applyView();
+}
+function clampView(){
+  const W=bw*z,H=bh*z;
+  tx=W<=sw?(sw-W)/2:Math.min(0,Math.max(sw-W,tx));
+  ty=H<=sh?(sh-H)/2:Math.min(0,Math.max(sh-H,ty));
+}
+function applyView(){view.style.transform=`translate(${tx}px,${ty}px) scale(${z})`;placeCursor()}
+function placeCursor(){cur.style.transform=`translate(${cn.x*bw}px,${cn.y*bh}px) scale(${1/z})`}
+function zoomAt(cx,cy,k){
+  const nz=Math.max(1,Math.min(6,z*k));
+  tx=cx-(cx-tx)*(nz/z);ty=cy-(cy-ty)*(nz/z);z=nz;clampView();applyView();
+}
+function followCursor(){
+  if(z<=1.01)return;
+  const m=40,x=tx+cn.x*bw*z,y=ty+cn.y*bh*z;
+  if(x<m)tx+=m-x;else if(x>sw-m)tx-=x-(sw-m);
+  if(y<m)ty+=m-y;else if(y>sh-m)ty-=y-(sh-m);
+  clampView();applyView();
+}
+new ResizeObserver(fit).observe(stage);
+addEventListener('resize',sizeApp);
+if(window.visualViewport){visualViewport.addEventListener('resize',sizeApp);visualViewport.addEventListener('scroll',sizeApp)}
+document.addEventListener('gesturestart',e=>e.preventDefault());
+
+/* ---------- bağlantı ---------- */
+const send=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
+let retry=null;
+async function start(){
+  clearTimeout(retry);
+  try{
+    const r=await fetch('/api/me',{cache:'no-store'});
+    if(r.status===401){$('#login').classList.add('open');setTimeout(()=>$('#lpw').focus(),50);return}
+    if(!r.ok)throw 0;
+  }catch(e){toast('Sunucuya ulaşılamıyor, yeniden deneniyor…',0);retry=setTimeout(start,2000);return}
+  $('#login').classList.remove('open');connect();
+}
+function connect(){
+  ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
+  ws.binaryType='arraybuffer';
+  ws.onopen=()=>{hideToast();send({t:'quality',q:quality});if(audioOn)send({t:'audio',on:true})};
+  ws.onmessage=onMsg;
+  ws.onclose=()=>{toast('Bağlantı koptu, yeniden deneniyor…',0);retry=setTimeout(start,1500)};
+}
+$('#lform').onsubmit=async e=>{
+  e.preventDefault();$('#lerr').textContent='';
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({password:$('#lpw').value})});
+    const d=await r.json();
+    if(d.ok){$('#lpw').value='';start()}else $('#lerr').textContent=d.error||'Giriş başarısız';
+  }catch(err){$('#lerr').textContent='Sunucuya ulaşılamadı'}
+};
+
+/* ---------- gelen veri ---------- */
+let decoding=false,pending=null;
+function onMsg(ev){
+  if(typeof ev.data==='string'){
+    const m=JSON.parse(ev.data);
+    if(m.t==='cur'){
+      if(performance.now()-lastTouch>500){cn.x=m.x;cn.y=m.y;placeCursor()}
+      cur.style.display='block';
+    }else if(m.t==='info'){Object.assign(info,m);updateUI()}
+    else if(m.t==='warn'){m.msg?toast(m.msg,0):hideToast()}
+    else if(m.t==='toast')toast(m.msg,3200);
+    return;
+  }
+  const u=new Uint8Array(ev.data);
+  if(u[0]===1)showFrame(new Blob([u.subarray(2)],{type:'image/jpeg'}));
+  else if(u[0]===2)playAudio(ev.data);
+}
+async function showFrame(blob){
+  pending=blob;if(decoding)return;decoding=true;
+  while(pending){
+    const b=pending;pending=null;
+    try{
+      const bm=await createImageBitmap(b);
+      if(bm.width!==cv.width||bm.height!==cv.height){cv.width=bm.width;cv.height=bm.height;fit()}
+      ctx.drawImage(bm,0,0);bm.close();
+    }catch(e){}
+  }
+  decoding=false;
+}
+
+/* ---------- ses ---------- */
+let actx=null,nextT=0,audioOn=false;
+function playAudio(ab){
+  if(!audioOn||!actx)return;
+  const s=new Int16Array(ab.slice(2)),ch=info.ch,n=Math.floor(s.length/ch);
+  if(!n)return;
+  const buf=actx.createBuffer(ch,n,info.rate);
+  for(let c=0;c<ch;c++){const d=buf.getChannelData(c);for(let i=0;i<n;i++)d[i]=s[i*ch+c]/32768}
+  const src=actx.createBufferSource();src.buffer=buf;src.connect(actx.destination);
+  const now=actx.currentTime;
+  if(nextT<now+0.03||nextT>now+0.8)nextT=now+0.15;
+  src.start(nextT);nextT+=buf.duration;
+}
+$('#bAudio').onclick=async()=>{
+  if(!info.audio){toast('Bu bilgisayarda ses aktarımı kullanılamıyor');return}
+  audioOn=!audioOn;
+  if(audioOn){actx=actx||new(window.AudioContext||window.webkitAudioContext)();await actx.resume();nextT=0;
+    toast('Ses açık. iPhone sessiz modundaysa ses gelmez.',2600)}
+  send({t:'audio',on:audioOn});updateUI();
+};
+
+/* ---------- fare gönderimi ---------- */
+let pm={dx:0,dy:0},pa=null,pmT=null;
+function sched(){if(!pmT)pmT=setTimeout(flush,16)}
+function flush(){
+  clearTimeout(pmT);pmT=null;
+  if(pa){send({t:'abs',x:pa.x,y:pa.y});pa=null}
+  const ix=Math.trunc(pm.dx),iy=Math.trunc(pm.dy);
+  if(ix||iy){send({t:'move',dx:ix,dy:iy});pm.dx-=ix;pm.dy-=iy}
+}
+function movePad(dx,dy){
+  const k=(info.mw/bw)/z*PAD_SENS;
+  pm.dx+=dx*k;pm.dy+=dy*k;sched();
+  cn.x=clamp01(cn.x+dx*k/info.mw);cn.y=clamp01(cn.y+dy*k/info.mh);
+  placeCursor();followCursor();
+}
+function touchToNorm(t){
+  const r=stage.getBoundingClientRect();
+  return{x:clamp01(((t.clientX-r.left-tx)/z)/bw),y:clamp01(((t.clientY-r.top-ty)/z)/bh)};
+}
+function moveAbs(t){const p=touchToNorm(t);cn.x=p.x;cn.y=p.y;pa=p;placeCursor();sched()}
+const click=(b='left',n=1)=>{flush();send({t:'click',b,n})};
+
+/* ---------- dokunma hareketleri ---------- */
+let G={max:0,moved:false,dragging:false},lastTapEnd=0;
+const tdist=(a,b)=>Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+function gStart(e){
+  const ts=e.touches;lastTouch=performance.now();
+  if(ts.length===1){
+    G={max:1,t0:performance.now(),moved:false,dragging:false,two:null,sx:ts[0].clientX,sy:ts[0].clientY,
+       lx:ts[0].clientX,ly:ts[0].clientY,cand:performance.now()-lastTapEnd<250,ax:0,ay:0};
+    if(mode==='direct')moveAbs(ts[0]);
+  }else if(ts.length===2){
+    if(G.dragging){flush();send({t:'up',b:'left'});G.dragging=false}
+    G.max=Math.max(G.max,2);G.two=null;G.moved=false;G.t0=performance.now();G.ax=G.ay=0;
+    G.d0=tdist(ts[0],ts[1]);G.m0x=(ts[0].clientX+ts[1].clientX)/2;G.m0y=(ts[0].clientY+ts[1].clientY)/2;
+  }else G.max=Math.max(G.max,ts.length);
+}
+function gMove(e){
+  const ts=e.touches;lastTouch=performance.now();
+  if(G.max>=2){if(ts.length>=2&&G.max===2)twoMove(ts);return}
+  const t=ts[0];
+  if(!G.moved){
+    if(Math.hypot(t.clientX-G.sx,t.clientY-G.sy)<8)return;
+    G.moved=true;
+    if(G.cand||mode==='direct'){flush();send({t:'down',b:'left'});G.dragging=true}
+  }
+  const dx=t.clientX-G.lx,dy=t.clientY-G.ly;G.lx=t.clientX;G.ly=t.clientY;
+  mode==='pad'?movePad(dx,dy):moveAbs(t);
+}
+function twoMove(ts){
+  const a=ts[0],b=ts[1],d=tdist(a,b),mx=(a.clientX+b.clientX)/2,my=(a.clientY+b.clientY)/2;
+  if(G.two===null){
+    if(Math.abs(d-G.d0)>14)G.two='pinch';
+    else if(Math.hypot(mx-G.m0x,my-G.m0y)>10)G.two='scroll';
+    else return;
+    G.moved=true;G.ld=d;G.lmx=mx;G.lmy=my;return;
+  }
+  const r=stage.getBoundingClientRect(),ddx=mx-G.lmx,ddy=my-G.lmy;
+  if(G.two==='pinch'){
+    zoomAt(mx-r.left,my-r.top,d/G.ld);tx+=ddx;ty+=ddy;clampView();applyView();
+  }else if(mode==='direct'&&z>1.01){
+    tx+=ddx;ty+=ddy;clampView();applyView();
+  }else{
+    G.ax+=ddx/14;G.ay+=ddy/14;
+    const nx=Math.trunc(G.ax),ny=Math.trunc(G.ay);
+    if(nx||ny){G.ax-=nx;G.ay-=ny;send({t:'scroll',dx:-nx,dy:ny})}
+  }
+  G.ld=d;G.lmx=mx;G.lmy=my;
+}
+function gEnd(e){
+  if(e.touches.length>0)return;
+  const dt=performance.now()-G.t0;
+  if(G.max===1){
+    if(G.dragging){flush();send({t:'up',b:'left'});G.dragging=false}
+    else if(!G.moved&&dt<350){click('left');lastTapEnd=performance.now()}
+  }else if(G.max===2&&!G.moved&&dt<400)click('right');
+  G.max=0;
+}
+function gCancel(){if(G.dragging){flush();send({t:'up',b:'left'})}G={max:0,moved:false,dragging:false}}
+for(const[n,f]of[['touchstart',gStart],['touchmove',gMove],['touchend',gEnd],['touchcancel',gCancel]])
+  stage.addEventListener(n,e=>{e.preventDefault();f(e)},{passive:false});
+
+/* ---------- klavye ---------- */
+const mods=new Set();
+function sendKey(k,extra){
+  const m=[...mods,...(extra||[])];
+  send({t:'key',k,mods:m});mods.clear();updateUI();
+}
+function typeText(s){
+  if(mods.size){for(const ch of s)sendKey(ch.toLowerCase())}
+  else send({t:'text',s});
+}
+kbin.addEventListener('beforeinput',e=>{
+  const it=e.inputType;
+  if(it==='insertText'||it==='insertReplacementText'||it==='insertFromPaste'){
+    const s=e.data??(e.dataTransfer&&e.dataTransfer.getData('text'));
+    if(s)typeText(s);e.preventDefault();
+  }else if(it==='deleteContentBackward'){sendKey('backspace');e.preventDefault()}
+  else if(it==='insertLineBreak'||it==='insertParagraph'){sendKey('enter');e.preventDefault()}
+});
+kbin.addEventListener('compositionend',e=>{if(e.data)typeText(e.data);kbin.value=''});
+kbin.addEventListener('input',()=>{kbin.value=''});
+const KD={Backspace:'backspace',Enter:'enter',Tab:'tab',Escape:'esc',ArrowUp:'up',ArrowDown:'down',
+          ArrowLeft:'left',ArrowRight:'right',Delete:'delete'};
+kbin.addEventListener('keydown',e=>{const k=KD[e.key];if(k){sendKey(k);e.preventDefault()}});
+kbin.addEventListener('focus',()=>{app.classList.add('kb');updateUI();setTimeout(sizeApp,300)});
+kbin.addEventListener('blur',()=>{app.classList.remove('kb');updateUI();setTimeout(sizeApp,300)});
+$('#bKb').onclick=()=>{document.activeElement===kbin?kbin.blur():kbin.focus({preventScroll:true})};
+
+function doAct(act){
+  if(act.startsWith('mod:')){const m=act.slice(4);mods.has(m)?mods.delete(m):mods.add(m);updateUI()}
+  else if(act.startsWith('c:')){const p=act.slice(2).split('+'),k=p.pop();send({t:'key',k,mods:[...mods,...p]});mods.clear();updateUI()}
+  else if(act==='sas')send({t:'sas'});
+  else sendKey(act);
+  if(app.classList.contains('kb'))kbin.focus({preventScroll:true});
+}
+const KEYS=[['Esc','esc'],['Tab','tab'],['Ctrl','mod:ctrl'],['Alt','mod:alt'],['Shift','mod:shift'],['Win','mod:win'],
+  ['←','left'],['↑','up'],['↓','down'],['→','right'],['Del','delete'],['Home','home'],['End','end'],
+  ['PgUp','pageup'],['PgDn','pagedown'],['Alt+Tab','c:alt+tab'],['F5','f5']];
+const keysEl=$('#keys');
+for(const[label,act]of KEYS){const b=document.createElement('button');b.textContent=label;b.dataset.act=act;b.onclick=()=>doAct(act);keysEl.appendChild(b)}
+
+/* ---------- araç çubuğu ---------- */
+function updateUI(){
+  $('#bAudio').textContent=audioOn?'Ses açık':'Ses kapalı';$('#bAudio').classList.toggle('on',audioOn);
+  $('#bMode').textContent=mode==='pad'?'Touchpad':'Doğrudan';
+  $('#bQ').textContent='Kalite: '+QN[quality];
+  $('#bKb').classList.toggle('on',app.classList.contains('kb'));
+  const bm=$('#bMon');bm.style.display=info.mons>1?'':'none';bm.textContent='Ekran '+info.mon+'/'+info.mons;
+  for(const b of document.querySelectorAll('[data-act^="mod:"]'))b.classList.toggle('on',mods.has(b.dataset.act.slice(4)));
+}
+$('#bMode').onclick=()=>{mode=mode==='pad'?'direct':'pad';store.set('mode',mode);updateUI();
+  toast(mode==='pad'?'Touchpad: parmağınla imleci kaydır, dokun = tıkla':'Doğrudan: dokunduğun yere tıkla',2400)};
+$('#bQ').onclick=()=>{quality=(quality+1)%4;store.set('q2',quality);send({t:'quality',q:quality});updateUI()};
+$('#bMon').onclick=()=>{send({t:'monitor',i:info.mon%info.mons+1})};
+$('#bFit').onclick=()=>{z=1;clampView();applyView()};
+$('#bHide').onclick=()=>{app.classList.add('nobar');setTimeout(sizeApp,50)};
+$('#fab').onclick=()=>{app.classList.remove('nobar');setTimeout(sizeApp,50)};
+
+/* ---------- tuşlar paneli ---------- */
+const GROUPS=[
+ ['Fonksiyon tuşları',[...Array(12)].map((_,i)=>['F'+(i+1),'f'+(i+1)])],
+ ['Değiştirici tuşlar (sonraki tuşa uygulanır)',[['Ctrl','mod:ctrl'],['Alt','mod:alt'],['Shift','mod:shift'],['Win','mod:win']]],
+ ['Gezinme ve düzenleme',[['Esc','esc'],['Tab','tab'],['Enter','enter'],['Backspace','backspace'],['Boşluk','space'],['Del','delete'],
+   ['Ins','insert'],['Caps','caps'],['←','left'],['↑','up'],['↓','down'],['→','right'],['Home','home'],['End','end'],
+   ['PgUp','pageup'],['PgDn','pagedown'],['PrtSc','prtsc'],['Menü','menu']]],
+ ['Kısayollar',[['Kopyala','c:ctrl+c'],['Yapıştır','c:ctrl+v'],['Kes','c:ctrl+x'],['Tümünü seç','c:ctrl+a'],['Geri al','c:ctrl+z'],
+   ['Yinele','c:ctrl+y'],['Kaydet','c:ctrl+s'],['Bul','c:ctrl+f'],['Alt+Tab','c:alt+tab'],['Win+Tab','c:win+tab'],
+   ['Alt+F4','c:alt+f4'],['Masaüstü','c:win+d'],['Çalıştır','c:win+r'],['Gezgin','c:win+e'],['Kilitle','c:win+l'],
+   ['Görev Yön.','c:ctrl+shift+esc'],['Ctrl+Alt+Del','sas'],['Başlat','win'],['Ekran al','c:win+shift+s']]],
+ ['Ses ve medya',[['Ses +','volup'],['Ses −','voldown'],['Sessiz','mute'],['Oynat/Durdur','playpause'],['Sonraki','next'],['Önceki','prev']]],
+];
+const kbody=$('#kbody');
+for(const[title,items]of GROUPS){
+  const t=document.createElement('div');t.className='kt';t.textContent=title;
+  const g=document.createElement('div');g.className='kgrid';
+  for(const[label,act]of items){const b=document.createElement('button');b.textContent=label;b.dataset.act=act;b.onclick=()=>doAct(act);g.appendChild(b)}
+  kbody.append(t,g);
+}
+$('#bKeys').onclick=()=>$('#keysheet').classList.toggle('open');
+$('#kclose').onclick=()=>$('#keysheet').classList.remove('open');
+for(const s of document.querySelectorAll('.sheet:not(.light)'))s.addEventListener('click',e=>{if(e.target===s)s.classList.remove('open')});
+
+/* ---------- tam ekran ---------- */
+const standalone=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;
+const de=document.documentElement,fsReq=de.requestFullscreen||de.webkitRequestFullscreen;
+const fsOn=()=>document.fullscreenElement||document.webkitFullscreenElement;
+$('#bFull').onclick=async()=>{
+  if(fsOn()){(document.exitFullscreen||document.webkitExitFullscreen).call(document);return}
+  if(fsReq){try{await fsReq.call(de);try{await screen.orientation.lock('landscape')}catch(e){}return}catch(e){}}
+  if(standalone){toast('Zaten tam ekrandasın. Yatay için telefonu yan çevir.',3000);return}
+  $('#fshelp').classList.add('open');
+};
+$('#fhclose').onclick=()=>$('#fshelp').classList.remove('open');
+document.addEventListener('fullscreenchange',()=>setTimeout(sizeApp,100));
+document.addEventListener('webkitfullscreenchange',()=>setTimeout(sizeApp,100));
+
+/* ---------- dosyalar ---------- */
+let fdir='';
+const fmt=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(0)+' KB':n<1073741824?(n/1048576).toFixed(1)+' MB':(n/1073741824).toFixed(2)+' GB';
+const join=(a,b)=>a?a+'/'+b:b;
+function row(label,size,fn){
+  const r=document.createElement('div');r.className='row';
+  const n=document.createElement('span');n.className='n';n.textContent=label;
+  const s=document.createElement('span');s.className='s';s.textContent=size;
+  r.append(n,s);r.onclick=fn;return r;
+}
+async function loadDir(p){
+  try{
+    const r=await fetch('/api/ls?path='+encodeURIComponent(p));
+    if(!r.ok){toast('Klasör açılamadı');return}
+    const d=await r.json();fdir=d.path;
+    $('#fpath').textContent='/'+d.path;
+    const list=$('#flist');list.replaceChildren();
+    if(d.parent!==null)list.appendChild(row('⬆  Üst klasör','',()=>loadDir(d.parent)));
+    for(const it of d.items){
+      list.appendChild(it.dir?row('📁  '+it.name,'',()=>loadDir(join(d.path,it.name)))
+                             :row(it.name,fmt(it.size),()=>download(join(d.path,it.name),it.name)));
+    }
+    if(!d.items.length)list.appendChild(row('Bu klasör boş','',()=>{}));
+  }catch(e){toast('Bağlantı hatası')}
+}
+function download(p,name){
+  const a=document.createElement('a');a.href='/api/dl?path='+encodeURIComponent(p);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
+}
+$('#bFiles').onclick=()=>{$('#files').classList.add('open');loadDir(fdir)};
+$('#fclose').onclick=()=>$('#files').classList.remove('open');
+$('#fup').onclick=()=>$('#upin').click();
+function upload(f,i,n){
+  return new Promise(res=>{
+    const x=new XMLHttpRequest();x.open('POST','/api/ul?dir='+encodeURIComponent(fdir));
+    x.upload.onprogress=e=>{if(e.lengthComputable)$('#fstat').textContent=`Yükleniyor ${i}/${n}: %${Math.round(e.loaded/e.total*100)}`};
+    x.onload=()=>{x.status===200?0:$('#fstat').textContent='Yükleme hatası: '+f.name;res()};
+    x.onerror=()=>{$('#fstat').textContent='Yükleme hatası: '+f.name;res()};
+    const fd=new FormData();fd.append('file',f,f.name);x.send(fd);
+  });
+}
+$('#upin').onchange=async e=>{
+  const fs=[...e.target.files];
+  for(let i=0;i<fs.length;i++)await upload(fs[i],i+1,fs.length);
+  e.target.value='';$('#fstat').textContent=fs.length+' dosya yüklendi';loadDir(fdir);
+};
+
+/* ---------- başlat ---------- */
+updateUI();sizeApp();start();
+})();
+</script>
+</body>
+</html>
